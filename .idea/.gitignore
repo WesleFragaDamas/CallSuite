@@ -1,0 +1,8 @@
+# Default ignored files
+/../../CallSuite /.idea/shelf/
+/../../CallSuite /.idea/workspace.xml
+# Editor-based HTTP Client requests
+/../../CallSuite /.idea/httpRequests/
+# Datasource local storage ignored files
+/../../CallSuite /.idea/dataSources/
+/../../CallSuite /.idea/dataSources.local.xml

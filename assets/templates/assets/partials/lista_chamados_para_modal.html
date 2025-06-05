@@ -1,0 +1,32 @@
+{# Apenas a lista de chamados, igual ao bloco dentro de detalhes_computador_modal_content.html #}
+{% if chamados %}
+    <div class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+        {% for chamado in chamados %}
+            <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 border rounded">
+                {# ... conteúdo do item do chamado ... #}
+                 <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">#{{ chamado.id }} - {{ chamado.titulo }}</h6>
+                    <small class="text-muted">{{ chamado.data_abertura|date:"d/m/Y H:i" }}</small>
+                </div>
+                <p class="mb-1 small">{{ chamado.descricao_problema|truncatewords:20 }}</p>
+                <small>
+                    Status:
+                    <span class="badge rounded-pill
+                        {% if chamado.status_chamado == 'aberto' %}bg-primary
+                        {% elif chamado.status_chamado == 'em_atendimento' %}bg-info text-dark
+                        {% elif chamado.status_chamado == 'aguardando_peca' %}bg-warning text-dark
+                        {% elif chamado.status_chamado == 'resolvido' %}bg-success
+                        {% elif chamado.status_chamado == 'fechado' %}bg-secondary
+                        {% else %}bg-light text-dark{% endif %}">
+                        {{ chamado.get_status_chamado_display }}
+                    </span>
+                    {% if chamado.tecnico_responsavel %}
+                        | Técnico: {{ chamado.tecnico_responsavel.get_full_name|default:chamado.tecnico_responsavel.username }}
+                    {% endif %}
+                </small>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted">Nenhum chamado registrado para este computador.</p>
+{% endif %}

@@ -1,0 +1,14 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard - CallSuite{% endblock %}
+
+{% block content %}
+<h1>Bem-vindo ao CallSuite, {{ user.username|default:'Visitante' }}!</h1>
+<p>Este é o seu painel principal.</p>
+{% if user.is_authenticated %}
+    <p>Você está logado.</p>
+{% else %}
+    <p>Você não está logado. <a href="{% url 'login' %}">Faça login</a>.</p>
+{% endif %}
+{% endblock %}

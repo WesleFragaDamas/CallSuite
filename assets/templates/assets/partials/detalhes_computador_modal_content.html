@@ -1,0 +1,119 @@
+{# assets/templates/assets/partials/detalhes_computador_modal_content.html #}
+{# Este div principal terá o data-attribute para fácil acesso ao ID do computador no JS #}
+<div data-computador-id-modal-content="{{ computador.id }}">
+    <h4>{{ computador.nome_host }}</h4>
+    <hr>
+    <div class="row">
+        <div class="col-md-6">
+            <p><strong>Setor:</strong> {{ computador.setor|default:"N/A" }}</p>
+            <p><strong>IP Associado:</strong> {{ computador.ip_associado.address|default:"Nenhum" }}</p>
+            <p><strong>Status Reportado:</strong>
+                <span class="badge
+                    {% if computador.status_reportado == 'ok' %}bg-success
+                    {% elif computador.status_reportado == 'problema' %}bg-danger
+                    {% elif computador.status_reportado == 'manutencao' %}bg-warning text-dark
+                    {% else %}bg-secondary{% endif %}">
+                    {{ computador.get_status_reportado_display }}
+                </span>
+            </p>
+            <p><strong>Status Rede (Ping):</strong>
+                 <span class="badge
+                    {% if computador.status_rede == 'online' %}bg-success
+                    {% elif computador.status_rede == 'offline' %}bg-danger
+                    {% elif computador.status_rede == 'erro_ip' %}bg-warning text-dark
+                    {% elif computador.status_rede == 'unreachable' %}bg-warning text-dark
+                    {% elif computador.status_rede == 'timeout' %}bg-warning text-dark
+                    {% else %}bg-secondary{% endif %}">
+                    {{ computador.get_status_rede_display }}
+                </span>
+                 <button class="btn btn-sm btn-outline-secondary ms-2 btn-check-ping-modal" data-comp-id="{{ computador.id }}">
+                        <i class="bi bi-arrow-repeat"></i>
+                 </button>
+            </p>
+            {% if computador.descricao %}
+                <p><strong>Observações:</strong> {{ computador.descricao|linebreaksbr }}</p>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            <p><em>(Mais detalhes do ativo podem ser adicionados aqui)</em></p>
+        </div>
+    </div>
+
+    {# Dentro de detalhes_computador_modal_content.html, talvez antes ou depois do histórico de chamados #}
+    <div class="mt-3 text-center"> {# Adicionado text-center para o botão #}
+        <button class="btn btn-danger btn-sm btn-abrir-modal-reportar-problema-detalhes" {# Nova classe específica #}
+                data-comp-id="{{ computador.id }}"
+                data-comp-name="{{ computador.nome_host }}">
+            <i class="bi bi-exclamation-triangle-fill"></i> Reportar Novo Problema
+        </button>
+    </div>
+
+    <h5 class="mt-4">Histórico de Chamados</h5>
+    {# Container para a lista de chamados, para ser atualizado via JS #}
+    <div id="lista-chamados-container-{{ computador.id }}">
+        {% if chamados %}
+            <div class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                {% for chamado in chamados %}
+                    <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 border rounded">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">#{{ chamado.id }} - {{ chamado.titulo }}</h6>
+                            <small class="text-muted">{{ chamado.data_abertura|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        <p class="mb-1 small">{{ chamado.descricao_problema|truncatewords:20 }}</p>
+                        <small>
+                            Status:
+                            <span class="badge rounded-pill
+                                {% if chamado.status_chamado == 'aberto' %}bg-primary
+                                {% elif chamado.status_chamado == 'em_atendimento' %}bg-info text-dark
+                                {% elif chamado.status_chamado == 'aguardando_peca' %}bg-warning text-dark
+                                {% elif chamado.status_chamado == 'resolvido' %}bg-success
+                                {% elif chamado.status_chamado == 'fechado' %}bg-secondary
+                                {% else %}bg-light text-dark{% endif %}">
+                                {{ chamado.get_status_chamado_display }}
+                            </span>
+                            {% if chamado.tecnico_responsavel %}
+                                | Técnico: {{ chamado.tecnico_responsavel.get_full_name|default:chamado.tecnico_responsavel.username }}
+                            {% endif %}
+                        </small>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted">Nenhum chamado registrado para este computador.</p>
+        {% endif %}
+    </div> {# Fim do lista-chamados-container #}
+
+    {# Container para o formulário de atualização de chamado, para ser atualizado via JS #}
+    <div id="form-atualizar-chamado-container-{{ computador.id }}" class="mt-3">
+        {% with chamados|first as ultimo_chamado_valido_para_acao %} {# Renomeei a variável with para clareza #}
+            {% if ultimo_chamado_valido_para_acao and ultimo_chamado_valido_para_acao.status_chamado != 'resolvido' and ultimo_chamado_valido_para_acao.status_chamado != 'fechado' %}
+                <hr class="my-4">
+                <h6><i class="bi bi-pencil-square me-1"></i>Atualizar Chamado: #{{ ultimo_chamado_valido_para_acao.id }} - {{ ultimo_chamado_valido_para_acao.titulo }}</h6>
+                <form id="form-atualizar-chamado-obj-{{ ultimo_chamado_valido_para_acao.id }}" class="form-atualizar-chamado mt-2"> {# ID do form mais específico #}
+                    {% csrf_token %}
+                    <input type="hidden" name="chamado_id" value="{{ ultimo_chamado_valido_para_acao.id }}">
+                    <div class="mb-2">
+                        <label for="chamado_status-{{ ultimo_chamado_valido_para_acao.id }}" class="form-label fw-bold">Novo Status:</label>
+                        <select name="status_chamado" id="chamado_status-{{ ultimo_chamado_valido_para_acao.id }}" class="form-select form-select-sm">
+                            {% for value, display_name in ultimo_chamado_valido_para_acao.STATUS_CHAMADO_CHOICES %}
+                                <option value="{{ value }}" {% if ultimo_chamado_valido_para_acao.status_chamado == value %}selected{% endif %}>{{ display_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label for="solucao_aplicada-{{ ultimo_chamado_valido_para_acao.id }}" class="form-label">Solução Aplicada / Notas:</label>
+                        <textarea name="solucao_aplicada" id="solucao_aplicada-{{ ultimo_chamado_valido_para_acao.id }}" class="form-control form-control-sm" rows="3">{{ ultimo_chamado_valido_para_acao.solucao_aplicada|default:"" }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg"></i> Atualizar Chamado
+                    </button>
+                </form>
+            {% elif ultimo_chamado_valido_para_acao %}
+                <p class="mt-3 text-muted fst-italic"><em>Último chamado (#{{ ultimo_chamado_valido_para_acao.id }}) já está {{ ultimo_chamado_valido_para_acao.get_status_chamado_display }}.</em></p>
+            {% else %}
+                {# Não mostra nada se não houver chamados ou se o último já estiver resolvido/fechado e não houver outros abertos #}
+                {# Ou, se não houver chamados, já foi tratado acima #}
+            {% endif %}
+        {% endwith %}
+    </div> {# Fim do form-atualizar-chamado-container #}
+</div>
