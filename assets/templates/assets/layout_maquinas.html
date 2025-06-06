@@ -49,6 +49,12 @@
     .computador-layout-item.status-problema { border-left: 4px solid #dc3545; }
     .computador-layout-item.status-manutencao { border-left: 4px solid #ffc107; }
 
+    .computador-layout-item.is-dragging {
+    opacity: 0.7;
+    border: 2px dashed #007bff;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
     .layout-map-canvas.edit-mode .computador-layout-item {
     cursor: move; /* Indica que os itens são arrastáveis */
     border: 1px dashed #0dcaf0; /* Borda diferente no modo de edição */
@@ -74,6 +80,9 @@
         <button id="zoom-reset-btn" class="btn btn-outline-info btn-sm" title="Restaurar Zoom (100%)"><i class="bi bi-arrow-counterclockwise"></i> <span id="zoom-level-display">100%</span></button>
         <button id="toggle-edit-mode-btn" class="btn btn-outline-warning btn-sm" title="Ativar Modo de Edição de Layout">
            <i class="bi bi-pencil-square"></i> Editar Layout
+        </button>
+        <button id="zoom-fit-btn" class="btn btn-outline-success btn-sm" title="Ajustar Visualização ao Conteúdo">
+            <i class="bi bi-arrows-fullscreen"></i> Ajustar
         </button>
         <span class="ms-auto text-muted small">Ctrl + Roda do Mouse para zoom.</span>
     </div>
@@ -113,7 +122,14 @@
 
 {% block extra_scripts %}
     <script>
-        window.APP_CONFIG = { urls: { reportarProblema: "{% url 'assets:reportar_problema' %}", atualizarChamado: "{% url 'assets:atualizar_chamado' %}" } };
+         window.APP_CONFIG = {
+            urls: {
+                reportarProblema: "{% url 'assets:reportar_problema' %}",
+                atualizarChamado: "{% url 'assets:atualizar_chamado' %}",
+                updateComputadorPosition: "/assets/computador/__COMP_ID__/update-position/" // Placeholder
+            }
+            // CSRF Token é pego do input no DOM
+         };
     </script>
     {% csrf_token %}
     <script src="{% static 'js/layout_maquinas_interactions.js' %}" defer></script>

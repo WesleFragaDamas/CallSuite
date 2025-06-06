@@ -6,12 +6,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const URLS = (window.APP_CONFIG && window.APP_CONFIG.urls) ? window.APP_CONFIG.urls : {};
 
     const detailsModalEl = document.getElementById('computerDetailsModal');
-    const detailsModal = detailsModalEl ? new bootstrap.Modal(detailsModalEl) : null;
+    let detailsModal = null; // Inicializa como null, será instanciado se o elemento existir
+    if (detailsModalEl) {
+        detailsModal = new bootstrap.Modal(detailsModalEl);
+    }
     const detailsModalBody = document.getElementById('computerDetailsModalBody');
     const detailsModalLabel = document.getElementById('computerDetailsModalLabel');
 
     const reportModalEl = document.getElementById('reportProblemModal');
-    const reportModal = reportModalEl ? new bootstrap.Modal(reportModalEl) : null;
+    let reportModal = null;
+    if (reportModalEl) {
+        reportModal = new bootstrap.Modal(reportModalEl);
+    }
     const reportForm = document.getElementById('reportProblemForm');
     const reportCompNameEl = document.getElementById('report_comp_name');
     const reportCompIdInput = document.getElementById('report_computador_id');
@@ -27,27 +33,55 @@ document.addEventListener('DOMContentLoaded', function () {
     const ZOOM_STEP = 0.1;
     const MIN_ZOOM = 0.3;
     const MAX_ZOOM = 2.5;
+    const GRID_SIZE = 20;
+
+    const toggleEditModeBtn = document.getElementById('toggle-edit-mode-btn');
+    let isEditMode = false;
+    let draggedItem = null;
+    let offsetX, offsetY;
+
+    let isPanning = false, panStartX, panStartY, panScrollLeftStart, panScrollTopStart;
+
+    if (!CSRF_TOKEN && (reportForm || document.querySelector('.form-atualizar-chamado'))) {
+        console.warn("CSRF Token não encontrado no DOM inicial. Se houver formulários AJAX, eles podem falhar sem ele.");
+        // showToast('Erro de segurança (CS). Recarregue.', 'danger'); // Pode ser muito intrusivo se não houver forms ainda
+    }
 
     // --- Funções Auxiliares ---
     function showToast(message, type = 'info') {
-        const container = document.querySelector('.toast-container');
-        if (!container) { alert(message); return; }
+        const container = document.querySelector('.toast-container'); // Assegure-se que este container existe no seu base.html
+        if (!container) {
+            console.warn("Toast container não encontrado. Usando alert como fallback.");
+            alert(message);
+            return;
+        }
         const id = 'toast-' + Date.now();
-        const html = `<div id="${id}" class="toast bg-${type} text-white" role="alert"><div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+        const bgClass = (type === 'error' ? 'danger' : type); // Bootstrap usa 'danger' para erro
+        const html = `<div id="${id}" class="toast align-items-center text-white bg-${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true"><div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div></div>`;
         container.insertAdjacentHTML('beforeend', html);
         const el = document.getElementById(id);
-        new bootstrap.Toast(el, { delay: 5000 }).show();
-        el.addEventListener('hidden.bs.toast', () => el.remove());
+        if (el) {
+            const toast = new bootstrap.Toast(el, { delay: 5000 });
+            toast.show();
+            el.addEventListener('hidden.bs.toast', () => el.remove());
+        }
     }
 
     function toggleButtonSpinner(button, isLoading, loadingText = "Aguarde...") {
+        if (!button) return;
         if (isLoading) {
             button.dataset.originalHtml = button.innerHTML;
             button.disabled = true;
-            button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> ${loadingText}`;
+            button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${loadingText}`;
         } else {
             button.disabled = false;
-            button.innerHTML = button.dataset.originalHtml || "Enviar";
+            if (button.dataset.originalHtml) {
+                button.innerHTML = button.dataset.originalHtml;
+            } else {
+                // Fallback se originalHtml não foi setado (ex: se o botão não tinha texto)
+                 if (button.querySelector('.bi')) button.innerHTML = button.querySelector('.bi').outerHTML; // Mantém só o ícone se houver
+                 else button.textContent = "Ação"; // Texto genérico
+            }
         }
     }
 
@@ -55,13 +89,18 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const response = await fetch(url, options);
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: `Erro HTTP: ${response.status}` }));
+                let errorData = { error: `Erro HTTP: ${response.status} - ${response.statusText}` };
+                try {
+                    // Tenta parsear como JSON, mas se falhar, usa o erro HTTP genérico
+                    const jsonData = await response.json();
+                    errorData = { ...errorData, ...jsonData }; // Mescla o erro HTTP com o JSON do backend
+                } catch (e) { /* Não faz nada se não for JSON, mantém o erro HTTP */ }
                 throw errorData;
             }
-            return await response.json();
+            return await response.json(); // Só chama json() se response.ok
         } catch (error) {
             console.error(`Fetch error for ${url}:`, error);
-            throw error; // Re-throw para ser pego pelo chamador
+            throw error;
         }
     }
 
@@ -79,22 +118,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- Lógica de Pan ---
-    let isPanning = false, panStartX, panStartY, panScrollLeftStart, panScrollTopStart;
     function startPan(e) {
-        // Inicia o pan somente se o clique for no fundo do viewport ou canvas
         if (e.target === layoutMapCanvas || e.target === layoutViewport) {
             isPanning = true;
-            layoutViewport.classList.add('is-panning');
-            panStartX = e.pageX - layoutViewport.offsetLeft;
-            panStartY = e.pageY - layoutViewport.offsetTop;
-            panScrollLeftStart = layoutViewport.scrollLeft;
-            panScrollTopStart = layoutViewport.scrollTop;
-            // e.preventDefault(); // Pode ser necessário se houver seleção de texto
+            if (layoutViewport) layoutViewport.classList.add('is-panning');
+            panStartX = e.pageX - (layoutViewport ? layoutViewport.offsetLeft : 0);
+            panStartY = e.pageY - (layoutViewport ? layoutViewport.offsetTop : 0);
+            panScrollLeftStart = layoutViewport ? layoutViewport.scrollLeft : 0;
+            panScrollTopStart = layoutViewport ? layoutViewport.scrollTop : 0;
         }
     }
     function doPan(e) {
-        if (!isPanning) return;
-        // e.preventDefault(); // Previne scroll padrão da página apenas se estiver arrastando
+        if (!isPanning || !layoutViewport) return;
         const x = e.pageX - layoutViewport.offsetLeft;
         const y = e.pageY - layoutViewport.offsetTop;
         layoutViewport.scrollLeft = panScrollLeftStart - (x - panStartX);
@@ -103,47 +138,133 @@ document.addEventListener('DOMContentLoaded', function () {
     function endPan() {
         if (isPanning) {
             isPanning = false;
-            layoutViewport.classList.remove('is-panning');
+            if (layoutViewport) layoutViewport.classList.remove('is-panning');
         }
+    }
+
+    // --- Lógica de Drag & Drop e Modo de Edição ---
+    function toggleLayoutEditMode() {
+        if (!layoutMapCanvas || !toggleEditModeBtn) return;
+        isEditMode = !isEditMode;
+        layoutMapCanvas.classList.toggle('edit-mode', isEditMode);
+        toggleEditModeBtn.classList.toggle('active', isEditMode);
+        const pencilIcon = '<i class="bi bi-pencil-square"></i> Editar Layout';
+        const checkIcon = '<i class="bi bi-check-circle-fill"></i> Concluir Edição';
+        toggleEditModeBtn.innerHTML = isEditMode ? checkIcon : pencilIcon;
+        toggleEditModeBtn.title = isEditMode ? "Sair do Modo de Edição" : "Ativar Edição de Layout";
+
+        document.querySelectorAll('.computador-layout-item').forEach(item => {
+            item.setAttribute('draggable', isEditMode);
+            if (isEditMode) {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+            } else {
+                item.removeEventListener('dragstart', handleDragStart);
+                item.removeEventListener('dragend', handleDragEnd);
+            }
+        });
+        console.log(isEditMode ? "Modo de edição ATIVADO." : "Modo de edição desativado.");
+    }
+
+    function handleDragStart(e) {
+        if (!isEditMode) { e.preventDefault(); return; }
+        draggedItem = e.currentTarget;
+        const rect = draggedItem.getBoundingClientRect();
+        offsetX = (e.clientX - rect.left) / currentZoomLevel;
+        offsetY = (e.clientY - rect.top) / currentZoomLevel;
+        e.dataTransfer.setData('text/plain', draggedItem.id); // Necessário para Firefox e outros
+        e.dataTransfer.effectAllowed = 'move';
+        draggedItem.classList.add('is-dragging');
+    }
+
+    function handleDragEnd(e) {
+        if (draggedItem) draggedItem.classList.remove('is-dragging');
+        draggedItem = null;
+    }
+
+    function handleDragOver(e) {
+        if (!isEditMode || !draggedItem) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    async function handleDrop(e) {
+        if (!isEditMode || !draggedItem) return;
+        e.preventDefault();
+
+        const canvasRect = layoutMapCanvas.getBoundingClientRect();
+        let newX = ((e.clientX - canvasRect.left) / currentZoomLevel) - offsetX;
+        let newY = ((e.clientY - canvasRect.top) / currentZoomLevel) - offsetY;
+
+        newX = Math.max(0, Math.round(newX / GRID_SIZE) * GRID_SIZE);
+        newY = Math.max(0, Math.round(newY / GRID_SIZE) * GRID_SIZE);
+
+        draggedItem.style.left = `${newX}px`;
+        draggedItem.style.top = `${newY}px`;
+
+        const compId = draggedItem.dataset.compIdCard;
+        const compName = draggedItem.querySelector('h6')?.textContent.trim() || 'Computador';
+
+        if (!URLS.updateComputadorPosition) {
+            showToast('URL de salvamento não configurada.', 'danger');
+            console.error("URLS.updateComputadorPosition não definida.");
+            return;
+        }
+        const saveUrl = URLS.updateComputadorPosition.replace('__COMP_ID__', compId);
+
+        if (CSRF_TOKEN) {
+            try {
+                const data = await fetchData(saveUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                    body: JSON.stringify({ pos_x: newX, pos_y: newY })
+                });
+                if (data.success) {
+                    showToast(data.message || `Posição de ${compName} salva!`, 'success');
+                } else { throw (data.error || 'Falha ao salvar.'); }
+            } catch (error) {
+                showToast(`Erro ao salvar: ${error.error || error.message || error}`, 'danger');
+            }
+        } else { showToast('CSRF Token ausente. Posição não salva.', 'warning'); }
     }
 
     // --- Atualizar Aparência do Card no Layout ---
-    function updateComputerCardOnLayout(compId, statusData) {
+    function updateComputerCardOnLayout(compId, reportStatus = {}, pingStatus = {}) {
         const card = document.querySelector(`.computador-layout-item[data-comp-id-card="${compId}"]`);
         if (!card) return;
 
-        card.classList.remove('status-ok', 'status-problema', 'status-manutencao');
-        if (statusData.status_reportado_class) card.classList.add(statusData.status_reportado_class);
-
-        card.style.backgroundColor = statusData.status_reportado_class === 'status-problema' ? '#f8d7da' : (statusData.status_reportado_class === 'status-manutencao' ? '#fff3cd' : '#fff');
-
-        const statusBadge = card.querySelector('.status-reportado-text-badge');
-        if (statusBadge && statusData.status_reportado_display) {
-            statusBadge.textContent = statusData.status_reportado_display;
-            let badgeBgClass = 'bg-secondary-subtle text-secondary-emphasis';
-            if (statusData.status_reportado_class === 'status-ok') badgeBgClass = 'bg-success-subtle text-success-emphasis';
-            else if (statusData.status_reportado_class === 'status-problema') badgeBgClass = 'bg-danger-subtle text-danger-emphasis';
-            else if (statusData.status_reportado_class === 'status-manutencao') badgeBgClass = 'bg-warning-subtle text-warning-emphasis';
-            statusBadge.className = `status-reportado-text-badge badge rounded-pill small ${badgeBgClass}`;
+        if (Object.keys(reportStatus).length > 0) {
+            card.classList.remove('status-ok', 'status-problema', 'status-manutencao');
+            if (reportStatus.status_reportado_class) card.classList.add(reportStatus.status_reportado_class);
+            card.style.backgroundColor = reportStatus.status_reportado_class === 'status-problema' ? '#f8d7da' : (reportStatus.status_reportado_class === 'status-manutencao' ? '#fff3cd' : '#fff');
+            const statusBadge = card.querySelector('.status-reportado-text-badge');
+            if (statusBadge && reportStatus.status_reportado_display) {
+                statusBadge.textContent = reportStatus.status_reportado_display;
+                let badgeBg = 'bg-secondary-subtle text-secondary-emphasis';
+                if (reportStatus.status_reportado_class === 'status-ok') badgeBg = 'bg-success-subtle text-success-emphasis';
+                else if (reportStatus.status_reportado_class === 'status-problema') badgeBg = 'bg-danger-subtle text-danger-emphasis';
+                else if (reportStatus.status_reportado_class === 'status-manutencao') badgeBg = 'bg-warning-subtle text-warning-emphasis';
+                statusBadge.className = `status-reportado-text-badge badge rounded-pill small ${badgeBg}`;
+            }
         }
 
-        // Atualiza ícone de ping no card
-        const pingIndicatorCard = card.querySelector(`#ping-status-${compId}`);
-        if (pingIndicatorCard && statusData.ping_icon_html && statusData.ping_text_class) {
-            pingIndicatorCard.innerHTML = statusData.ping_icon_html;
-            pingIndicatorCard.className = `ping-indicator ${statusData.ping_text_class}`;
+        if (Object.keys(pingStatus).length > 0) {
+            const pingIndicatorCard = card.querySelector(`#ping-status-${compId}`);
+            if (pingIndicatorCard && pingStatus.ping_icon_html) {
+                pingIndicatorCard.innerHTML = pingStatus.ping_icon_html;
+                if (pingStatus.ping_text_class) pingIndicatorCard.className = `ping-indicator ${pingStatus.ping_text_class}`;
+            }
+            const prefix = 'status-rede-';
+            card.className = card.className.replace(new RegExp(prefix + '\\S*', 'g'), '').trim();
+            if (pingStatus.ping_online_status) card.classList.add(prefix + pingStatus.ping_online_status);
         }
-        const cardNetworkStatusClassPrefix = 'status-rede-';
-        card.className = card.className.replace(new RegExp(cardNetworkStatusClassPrefix + '\\S*', 'g'), '').trim();
-        if (statusData.ping_online_status) card.classList.add(cardNetworkStatusClassPrefix + statusData.ping_online_status);
-
     }
 
-    // --- Manipuladores de Eventos Principais ---
+    // --- Manipuladores de Eventos para Modais e Ping ---
     async function handleViewComputerDetails(event) {
-        const cardItem = event.currentTarget; // O .computador-layout-item
+        const cardItem = event.currentTarget;
         const compId = cardItem.dataset.compIdCard;
-        if (!detailsModal || !compId) return;
+        if (!detailsModal || !compId || !detailsModalBody || !detailsModalLabel) return;
 
         const compName = cardItem.querySelector('h6')?.textContent.trim() || 'Computador';
         detailsModalLabel.textContent = `Detalhes de: ${compName}`;
@@ -154,16 +275,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const data = await fetchData(`/assets/computador/${compId}/detalhes/`);
             if (data.success && data.html_content) {
                 detailsModalBody.innerHTML = data.html_content;
-            } else {
-                throw (data.error || 'Conteúdo não recebido.');
-            }
+            } else { throw (data.error || 'Conteúdo não recebido.'); }
         } catch (error) {
             detailsModalBody.innerHTML = `<p class="text-danger">Falha ao carregar: ${error.error || error.message || error}</p>`;
         }
     }
 
     function handleOpenReportProblemModal(triggerButton) {
-        if (!reportModal || !reportForm) return;
+        if (!reportModal || !reportForm || !reportCompIdInput || !reportCompNameEl) return;
         const compId = triggerButton.dataset.compId;
         const compName = triggerButton.dataset.compName;
         reportCompIdInput.value = compId;
@@ -179,9 +298,7 @@ document.addEventListener('DOMContentLoaded', function () {
         toggleButtonSpinner(submitButton, true, "Enviando...");
         try {
             const data = await fetchData(URLS.reportarProblema, {
-                method: 'POST',
-                body: new FormData(reportForm),
-                headers: { 'X-CSRFToken': CSRF_TOKEN }
+                method: 'POST', body: new FormData(reportForm), headers: { 'X-CSRFToken': CSRF_TOKEN }
             });
             if (data.success) {
                 showToast(data.message || 'Chamado aberto!', 'success');
@@ -190,15 +307,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     status_reportado_class: data.novo_status_class,
                     status_reportado_display: data.novo_status_computador
                 });
-                // Recarregar detalhes no modal se estiver aberto para este PC
                 const currentDetailCompId = detailsModalBody.querySelector('[data-computador-id-modal-content]')?.dataset.computadorIdModalContent;
-                 if (detailsModalEl.classList.contains('show') && currentDetailCompId === String(data.computador_id)) {
+                if (detailsModalEl && detailsModalEl.classList.contains('show') && currentDetailCompId === String(data.computador_id)) {
                     const cardTrigger = document.querySelector(`.computador-layout-item[data-comp-id-card="${data.computador_id}"]`);
-                    if(cardTrigger) handleViewComputerDetails({currentTarget: cardTrigger}); // Simula clique para recarregar
+                    if (cardTrigger) handleViewComputerDetails({ currentTarget: cardTrigger });
                 }
-            } else {
-                throw (data.error || 'Erro desconhecido.');
-            }
+            } else { throw (data.error || 'Erro desconhecido.'); }
         } catch (error) {
             showToast(`Erro: ${error.error || error.message || error}`, 'danger');
         } finally {
@@ -214,9 +328,7 @@ document.addEventListener('DOMContentLoaded', function () {
         toggleButtonSpinner(submitButton, true, "Atualizando...");
         try {
             const data = await fetchData(URLS.atualizarChamado, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: { 'X-CSRFToken': CSRF_TOKEN }
+                method: 'POST', body: new FormData(form), headers: { 'X-CSRFToken': CSRF_TOKEN }
             });
             if (data.success) {
                 showToast(data.message || 'Chamado atualizado!', 'success');
@@ -230,9 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     status_reportado_class: data.computador_status_reportado_class,
                     status_reportado_display: data.computador_status_reportado_display
                 });
-            } else {
-                throw (data.error || 'Erro desconhecido.');
-            }
+            } else { throw (data.error || 'Erro desconhecido.'); }
         } catch (error) {
             showToast(`Erro: ${error.error || error.message || error}`, 'danger');
         } finally {
@@ -242,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function handlePingCheck(pingButton) {
         const compId = pingButton.dataset.compId;
-        toggleButtonSpinner(pingButton, true, ""); // Spinner sem texto
+        toggleButtonSpinner(pingButton, true, "");
         try {
             const data = await fetchData(`/assets/computador/${compId}/ping/`, {
                 headers: { 'X-CSRFToken': CSRF_TOKEN, 'Accept': 'application/json' }
@@ -250,28 +360,20 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.success) {
                 let iconHtml = '<i class="bi bi-question-circle text-muted"></i>', textClass = 'text-muted';
                 if (data.online_status === 'online') { iconHtml = '<i class="bi bi-wifi text-success"></i>'; textClass = 'text-success'; }
-                // ... (outras condições de ícone e classe como na sua versão anterior) ...
                 else if (data.online_status === 'offline') { iconHtml = '<i class="bi bi-wifi-off text-danger"></i>'; textClass = 'text-danger'; }
                 else if (data.online_status === 'unreachable') { iconHtml = '<i class="bi bi-exclamation-diamond-fill text-warning"></i>'; textClass = 'text-warning'; }
                 else if (data.online_status === 'timeout') { iconHtml = '<i class="bi bi-hourglass-split text-warning"></i>'; textClass = 'text-warning'; }
                 else if (data.online_status === 'no_ip') { iconHtml = '<i class="bi bi-ethernet text-muted"></i>'; textClass = 'text-muted';}
 
-
-                // Atualiza no modal de detalhes, se estiver aberto e for o mesmo PC
                 const modalPingSpan = detailsModalBody.querySelector(`#ping-status-modal-${compId}`);
-                if (modalPingSpan && detailsModalEl.classList.contains('show')) {
+                if (modalPingSpan && detailsModalEl && detailsModalEl.classList.contains('show')) {
                     modalPingSpan.innerHTML = data.status_text || 'Desconhecido';
                     modalPingSpan.className = `badge ${data.status_class || 'bg-secondary'}`;
                 }
-                // Atualiza no card do layout
-                updateComputerCardOnLayout(compId, {}, { // Passa objeto vazio para status_reportado se não muda
-                    ping_icon_html: iconHtml,
-                    ping_text_class: textClass,
-                    ping_online_status: data.online_status
+                updateComputerCardOnLayout(compId, {}, {
+                    ping_icon_html: iconHtml, ping_text_class: textClass, ping_online_status: data.online_status
                 });
-            } else {
-                throw (data.error || 'Falha no ping.');
-            }
+            } else { throw (data.error || 'Falha no ping.'); }
         } catch (error) {
             showToast(`Ping Erro: ${error.error || error.message || error}`, 'danger');
             updateComputerCardOnLayout(compId, {}, {ping_icon_html: '<i class="bi bi-x-circle-fill text-dark"></i>'});
@@ -280,201 +382,116 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-     // --- VARIÁVEIS E SELETORES PARA MODO DE EDIÇÃO E DRAG & DROP ---
-    const toggleEditModeBtn = document.getElementById('toggle-edit-mode-btn');
-    let isEditMode = false;
-    let draggedItem = null; // Item sendo arrastado
-    let offsetX, offsetY;   // Offset do mouse dentro do item arrastado
+     // --- NOVO: SELETOR PARA O BOTÃO DE ZOOM FIT ---
+    const zoomFitBtn = document.getElementById('zoom-fit-btn');
 
-    // --- FUNÇÕES PARA MODO DE EDIÇÃO E DRAG & DROP ---
-    function toggleLayoutEditMode() {
-        isEditMode = !isEditMode;
-        layoutMapCanvas.classList.toggle('edit-mode', isEditMode);
-        toggleEditModeBtn.classList.toggle('active', isEditMode);
-        toggleEditModeBtn.innerHTML = isEditMode ?
-            '<i class="bi bi-check-circle-fill"></i> Concluir Edição' :
-            '<i class="bi bi-pencil-square"></i> Editar Layout';
-        toggleEditModeBtn.title = isEditMode ?
-            "Salvar e Sair do Modo de Edição" :
-            "Ativar Modo de Edição de Layout";
+    // --- NOVA FUNÇÃO: CALCULAR E APLICAR ZOOM FIT ---
+    function calculateAndApplyZoomFitToCanvas() {
+    if (!layoutMapCanvas || !layoutViewport) return;
 
-        document.querySelectorAll('.computador-layout-item').forEach(item => {
-            item.setAttribute('draggable', isEditMode);
-            if (isEditMode) {
-                // Adiciona listeners de drag quando o modo de edição é ativado
-                item.addEventListener('dragstart', handleDragStart);
-                item.addEventListener('dragend', handleDragEnd);
-            } else {
-                // Remove listeners de drag quando o modo de edição é desativado
-                item.removeEventListener('dragstart', handleDragStart);
-                item.removeEventListener('dragend', handleDragEnd);
-            }
-        });
+    const canvasWidth = layoutMapCanvas.scrollWidth; // Largura total do conteúdo do canvas
+    const canvasHeight = layoutMapCanvas.scrollHeight; // Altura total do conteúdo do canvas
+    // Ou, se você tem as dimensões do canvas definidas no JS ou como data-attributes:
+    // const canvasWidth = parseFloat(layoutMapCanvas.style.width) || layoutMapCanvas.offsetWidth;
+    // const canvasHeight = parseFloat(layoutMapCanvas.style.height) || layoutMapCanvas.offsetHeight;
 
-        if (!isEditMode) {
-            // Aqui poderíamos ter uma lógica para "salvar todas as posições alteradas" se não salvarmos a cada drop.
-            // Por enquanto, salvaremos a cada drop.
-            console.log("Modo de edição desativado.");
-        } else {
-            console.log("Modo de edição ATIVADO.");
-        }
+
+    if (canvasWidth <= 0 || canvasHeight <= 0) {
+        applyZoom(1.0); return;
     }
 
-    function handleDragStart(e) {
-        if (!isEditMode) return;
-        draggedItem = e.target.closest('.computador-layout-item'); // Garante que pegamos o item correto
+    const viewportWidth = layoutViewport.clientWidth;
+    const viewportHeight = layoutViewport.clientHeight;
 
-        // Calcular o offset do clique do mouse em relação ao canto superior esquerdo do item arrastado
-        // Isso ajuda a manter o item posicionado corretamente sob o mouse durante o arraste.
-        const rect = draggedItem.getBoundingClientRect(); // Coordenadas relativas à viewport
-        // As coordenadas de e.clientX/Y também são relativas à viewport.
-        // Precisamos do offset DENTRO do elemento, considerando o zoom do canvas.
-        offsetX = (e.clientX - rect.left) / currentZoomLevel;
-        offsetY = (e.clientY - rect.top) / currentZoomLevel;
+    const PADDING_PERCENT = 0.98; // Um padding bem pequeno para não encostar nas bordas
+    const zoomX = (viewportWidth * PADDING_PERCENT) / canvasWidth;
+    const zoomY = (viewportHeight * PADDING_PERCENT) / canvasHeight;
 
-        e.dataTransfer.setData('text/plain', draggedItem.id); // Necessário para o Firefox
-        // e.dataTransfer.effectAllowed = 'move'; // Define o tipo de operação permitida
-        // Adicionar uma classe para estilizar o item sendo arrastado (opcional)
-        draggedItem.classList.add('is-dragging');
-        // console.log("Drag Start:", draggedItem.id, "Offset X:", offsetX, "Offset Y:", offsetY);
-    }
+    let newZoom = Math.min(zoomX, zoomY);
+    newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
 
-    function handleDragEnd(e) {
-        if (draggedItem) {
-            draggedItem.classList.remove('is-dragging');
-        }
-        draggedItem = null;
-        // console.log("Drag End");
-    }
+    applyZoom(newZoom);
 
-    function handleDragOver(e) {
-        if (!isEditMode || !draggedItem) return;
-        e.preventDefault(); // ESSENCIAL para permitir o drop
-        // e.dataTransfer.dropEffect = 'move'; // Indica visualmente que é um local de drop válido
-    }
+    // Resetar scroll para o canto superior esquerdo ao ajustar ao canvas inteiro
+    layoutViewport.scrollLeft = 0;
+    layoutViewport.scrollTop = 0;
 
-    async function handleDrop(e) {
-        if (!isEditMode || !draggedItem) return;
-        e.preventDefault();
-        draggedItem.classList.remove('is-dragging');
-
-        const canvasRect = layoutMapCanvas.getBoundingClientRect(); // Coordenadas e tamanho do canvas na viewport
-
-        // Coordenadas do mouse relativas à viewport
-        let clientX = e.clientX;
-        let clientY = e.clientY;
-
-        // Posição do canto superior esquerdo do canvas na viewport
-        let canvasLeft = canvasRect.left;
-        let canvasTop = canvasRect.top;
-
-        // Calcular a posição do mouse DENTRO do canvas, ajustando pelo scroll da viewport
-        // e pelo offset que calculamos no dragstart.
-        // As coordenadas são relativas ao canvas NÃO ESCALADO.
-        let newX = (clientX - canvasLeft) / currentZoomLevel - offsetX;
-        let newY = (clientY - canvasTop) / currentZoomLevel - offsetY;
-
-        // Arredondar para inteiros e garantir que não seja negativo (opcional)
-        newX = Math.max(0, Math.round(newX));
-        newY = Math.max(0, Math.round(newY));
-
-        // Atualizar visualmente a posição do item
-        draggedItem.style.left = `${newX}px`;
-        draggedItem.style.top = `${newY}px`;
-
-        const compId = draggedItem.dataset.compIdCard;
-        console.log(`Dropped ${compId} at (Canvas Coords): X=${newX}, Y=${newY}. Zoom: ${currentZoomLevel}`);
-
-        // Enviar para o backend para salvar
-        if (CSRF_TOKEN) {
-            try {
-                const response = await fetch(`/assets/computador/${compId}/update-position/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': CSRF_TOKEN
-                    },
-                    body: JSON.stringify({ pos_x: newX, pos_y: newY })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    showToast(data.message || `Posição de ${draggedItem.querySelector('h6')?.textContent.trim()} salva!`, 'success');
-                } else {
-                    throw (data.error || 'Falha ao salvar posição.');
-                }
-            } catch (error) {
-                showToast(`Erro ao salvar posição: ${error}`, 'danger');
-                // Reverter a posição visual se o save falhar? (mais complexo)
-                console.error("Save position error:", error);
-            }
-        } else {
-            showToast('CSRF Token não encontrado. Posição não salva.', 'warning');
-        }
-        draggedItem = null;
+    console.log(`Zoom Fit to Canvas: Nível=${newZoom.toFixed(2)}`);
     }
 
     // --- Atribuição de Event Listeners ---
+    if (layoutMapCanvas && layoutViewport) {
+        if (zoomInBtn) zoomInBtn.addEventListener('click', () => applyZoom(currentZoomLevel + ZOOM_STEP));
+        if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => applyZoom(currentZoomLevel - ZOOM_STEP));
+        if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => applyZoom(1.0));
+        if (toggleEditModeBtn) toggleEditModeBtn.addEventListener('click', toggleLayoutEditMode);
 
-     if (toggleEditModeBtn) {
-        toggleEditModeBtn.addEventListener('click', toggleLayoutEditMode);
-    }
-
-    if (layoutMapCanvas) { // Listeners relacionados ao layout/zoom/pan
+        layoutViewport.addEventListener('mousedown', startPan);
+        layoutViewport.addEventListener('wheel', function(event) {
+            if (event.ctrlKey) { event.preventDefault(); applyZoom(currentZoomLevel - (Math.sign(event.deltaY) * ZOOM_STEP));}
+        }, { passive: false });
 
         layoutMapCanvas.addEventListener('dragover', handleDragOver);
         layoutMapCanvas.addEventListener('drop', handleDrop);
 
-        if (zoomInBtn) zoomInBtn.addEventListener('click', () => applyZoom(currentZoomLevel + ZOOM_STEP));
-        if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => applyZoom(currentZoomLevel - ZOOM_STEP));
-        if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => applyZoom(1.0));
-        if (layoutViewport) { // Listeners de Pan e Wheel Zoom
-             layoutViewport.addEventListener('mousedown', startPan);
-             layoutViewport.addEventListener('wheel', function(event) {
-                if (event.ctrlKey) {
-                    event.preventDefault();
-                    applyZoom(currentZoomLevel - (Math.sign(event.deltaY) * ZOOM_STEP));
-                }
-            }, { passive: false });
-        }
         updateZoomButtonsState();
-        applyZoom(currentZoomLevel); // Aplica zoom inicial
+        applyZoom(currentZoomLevel); // Aplica estado inicial do zoom
     }
-    // Listener global para mousemove e mouseup para o Pan
     document.addEventListener('mousemove', doPan);
     document.addEventListener('mouseup', endPan);
 
-
     document.querySelectorAll('.computador-layout-item.can-open-details').forEach(card => {
-        card.addEventListener('click', handleViewComputerDetails);
+        card.addEventListener('click', function(event) {
+            if (event.target.closest('.btn-check-ping') || isEditMode) { // Não abre modal se clicou no ping ou está em modo de edição
+                return;
+            }
+            handleViewComputerDetails(event);
+        });
     });
 
-    document.querySelectorAll('.btn-check-ping').forEach(button => {
+    document.querySelectorAll('.btn-check-ping').forEach(button => { // Botões de ping nos cards
         button.addEventListener('click', function(event) {
-            event.stopPropagation(); // IMPEDE que o clique no botão de ping abra o modal de detalhes
+            event.stopPropagation(); // Impede que o clique propague para o card
             handlePingCheck(event.currentTarget);
         });
     });
 
     if (detailsModalBody) { // Delegação para botões DENTRO do modal de detalhes
         detailsModalBody.addEventListener('click', function(event) {
-            const reportBtnTrigger = event.target.closest('.btn-abrir-modal-reportar-problema-detalhes');
-            const pingBtnModalTrigger = event.target.closest('.btn-check-ping-modal');
-
-            if (reportBtnTrigger) { event.preventDefault(); handleOpenReportProblemModal(reportBtnTrigger); }
-            else if (pingBtnModalTrigger) { event.preventDefault(); event.stopPropagation(); handlePingCheck(pingBtnModalTrigger); }
+            const reportBtn = event.target.closest('.btn-abrir-modal-reportar-problema-detalhes');
+            const pingBtn = event.target.closest('.btn-check-ping-modal');
+            if (reportBtn) { event.preventDefault(); handleOpenReportProblemModal(reportBtn); }
+            else if (pingBtn) { event.preventDefault(); event.stopPropagation(); handlePingCheck(pingBtn); }
         });
     }
 
     if (reportForm) reportForm.addEventListener('submit', handleSubmitReportProblemForm);
 
-    document.body.addEventListener('submit', function(event) { // Delegação para form de ATUALIZAR chamado
+    document.body.addEventListener('submit', function(event) {
         if (event.target && event.target.matches('.form-atualizar-chamado')) {
             handleSubmitUpdateTicketForm(event);
         }
     });
 
-    // Verifica se todos os elementos principais foram encontrados
-    if (!CSRF_TOKEN || !URLS.reportarProblema || !detailsModalEl || !reportModalEl || !layoutViewport || !layoutMapCanvas) {
-        console.warn("Um ou mais elementos/configurações principais não foram encontrados. Algumas funcionalidades podem não operar corretamente.");
+    // Verificação final de elementos (opcional, para depuração)
+    const essentialElements = {CSRF_TOKEN, URLS, detailsModalEl, reportModalEl, layoutViewport, layoutMapCanvas};
+    for (const key in essentialElements) {
+        if (!essentialElements[key] && !(key === 'URLS' && Object.keys(URLS).length === 0) && !(key === 'CSRF_TOKEN' && CSRF_TOKEN === null && !reportForm && !document.querySelector('.form-atualizar-chamado'))) {
+            // console.warn(`JS Init Warning: Elemento/configuração essencial "${key}" não encontrado.`);
+        }
+    }
+    console.log("JS: layout_maquinas_interactions.js carregado e todos os listeners configurados.");
+
+     if (zoomFitBtn) {
+        zoomFitBtn.addEventListener('click', calculateAndApplyZoomFit);
+    }
+
+    // É uma boa ideia chamar o calculateAndApplyZoomFit na carga inicial da página
+    // se houver computadores, para que o layout já comece bem enquadrado.
+    if (layoutMapCanvas && layoutMapCanvas.querySelectorAll('.computador-layout-item').length > 0) {
+        // setTimeout para dar tempo ao navegador de renderizar e calcular offsetWidth/Height corretamente
+        setTimeout(calculateAndApplyZoomFit, 100);
+    } else if (layoutMapCanvas) { // Se não há itens, apenas reseta o zoom
+        applyZoom(1.0);
     }
 });
