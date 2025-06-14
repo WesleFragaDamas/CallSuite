@@ -16,11 +16,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include # Adicione include
+from django.views.defaults import permission_denied # Importa a view padrão
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')), # Para login, logout, etc.
     path('', include('core.urls')),
     path('assets/', include('assets.urls'))
+
     # Vamos adicionar uma URL para a nossa página inicial do 'core' depois
 ]
+handler403 = permission_denied # Usa a view padrão, que procurará por templates/403.html
+

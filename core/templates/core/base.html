@@ -19,32 +19,47 @@
         <div class="bg-light border-end" id="sidebar-wrapper-left" style="width: 250px;">
             <div class="sidebar-heading border-bottom bg-light">Menu Principal</div>
             <div class="list-group list-group-flush">
-{% if user.is_authenticated %}
-                            <a href="{% url 'dashboard' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
-                                <i class="bi bi-house-door-fill me-2"></i>Dashboard
-                            </a>
-                            {# ADICIONAR NOVO ITEM DE MENU AQUI #}
-                            <a href="{% url 'assets:layout_maquinas' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
-                                <i class="bi bi-diagram-3-fill me-2"></i>Layout de Máquinas
-                            </a>
-                            {# FIM DO NOVO ITEM #}
+            {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
+                    <i class="bi bi-house-door-fill me-2"></i>Dashboard
+                </a>
 
-                            {# Outros links do admin/usuário podem vir aqui, ex: Gerenciar Usuários, se for admin #}
-                            {% if user.is_staff %} {# Exemplo: Apenas para staff/admin #}
-                                <a href="{% url 'admin:index' %}" class="list-group-item list-group-item-action list-group-item-light p-3" target="_blank">
-                                    <i class="bi bi-gear-fill me-2"></i>Admin Django
-                                </a>
-                            {% endif %}
+                {% if perms.assets.view_computador %} {# <<< CONDIÇÃO PARA LAYOUT DE MÁQUINAS #}
+                <a href="{% url 'assets:layout_maquinas' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
+                    <i class="bi bi-diagram-3-fill me-2"></i>Layout de Máquinas
+                </a>
+                {% endif %}
 
-                            <a href="{% url 'logout' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
-                                <i class="bi bi-box-arrow-right me-2"></i>Sair
-                            </a>
-                        {% else %}
-                            <a href="{% url 'login' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
-                                <i class="bi bi-box-arrow-in-left me-2"></i>Login
-                            </a>
-                        {% endif %}
-                <!-- Mais itens de menu aqui -->
+                {% if perms.assets.view_chamadomanutencao %} {# <<< CONDIÇÃO PARA GERENCIAR CHAMADOS #}
+                <a href="{% url 'assets:lista_chamados' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
+                    <i class="bi bi-list-check me-2"></i>Gerenciar Chamados
+                </a>
+                {% endif %}
+
+                {% if perms.assets.view_computador %} {# Quem pode ver computadores, pode ver esta lista #}
+                <a href="{% url 'assets:lista_computadores' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
+                    <i class="bi bi-pc-display-horizontal me-2"></i>Gerenciar Computadores
+                </a>
+                {% endif %}
+
+                {% if user.is_staff %} {# Link do Admin Django só para staff #}
+                    <a href="{% url 'admin:index' %}" class="list-group-item list-group-item-action list-group-item-light p-3" target="_blank">
+                        <i class="bi bi-gear-fill me-2"></i>Admin Django
+                    </a>
+                {% endif %}
+
+                <form id="logout-form" method="post" action="{% url 'logout' %}" style="display: block;"> {# display:block para ocupar a linha #}
+                    {% csrf_token %}
+                    <button type="submit" class="list-group-item list-group-item-action list-group-item-light p-3 border-0 w-100 text-start"> {# w-100 text-start para parecer link #}
+                        <i class="bi bi-box-arrow-right me-2"></i>Sair
+                    </button>
+                </form>
+            {% else %}
+                    <a href="{% url 'login' %}" class="list-group-item list-group-item-action list-group-item-light p-3">
+                        <i class="bi bi-box-arrow-in-left me-2"></i>Login
+                    </a>
+                {% endif %}
+        <!-- Mais itens de menu aqui -->
             </div>
         </div>
         {% endblock %}

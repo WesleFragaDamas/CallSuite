@@ -40,10 +40,17 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core.apps.CoreConfig',
     'assets.apps.AssetsConfig',
+
+    'crispy_forms',  # Adicione esta linha
+    'crispy_bootstrap5',  # Adicione esta linha se estiver usando Bootstrap 5
+
+    'import_export',  # <<< ADICIONE ESTA LINHA
+
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -57,10 +64,13 @@ ROOT_URLCONF = 'callsuite.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            os.path.join(BASE_DIR, 'templates')  # Para templates globais como 403.html
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.request',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -126,6 +136,18 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'), # Para arquivos estáticos globais
 ]
 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles_production') # Nome da pasta pode ser o que quiser
+
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+    # Mantenha 'default' se não estiver usando um storage customizado para media files
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+}
+
 LOGIN_REDIRECT_URL = '/'  # Para onde ir após o login (vamos criar essa página)
 LOGOUT_REDIRECT_URL = '/accounts/login/' # Para onde ir após o logout
 
@@ -133,3 +155,6 @@ LOGOUT_REDIRECT_URL = '/accounts/login/' # Para onde ir após o logout
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"

@@ -1,0 +1,69 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">{{ page_title }}</h4>
+                </div>
+                <div class="card-body">
+                    <p>Selecione um arquivo CSV para importar a lista de computadores. O arquivo deve ter os seguintes cabeçalhos (a ordem não importa, mas os nomes sim):</p>
+                    <p><small class="text-muted"><code>nome_host</code> (obrigatório), <code>descricao</code>, <code>setor</code>, <code>ip_associado</code> (endereço IP, ex: 192.168.1.10), <code>pos_x</code>, <code>pos_y</code>, <code>status_reportado</code> (ex: ok, problema).</small></p>
+                    
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-upload"></i> Enviar Arquivo e Importar
+                            </button>
+                            <a href="{% url 'assets:lista_computadores' %}" class="btn btn-outline-secondary ms-2">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+
+                    {% if import_results %}
+                        <hr class="my-4">
+                        <h5>Resultados da Importação:</h5>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Computadores Criados:
+                                <span class="badge bg-success rounded-pill">{{ import_results.created_count }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Computadores Atualizados:
+                                <span class="badge bg-info rounded-pill">{{ import_results.updated_count }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Linhas Puladas (ex: nome_host vazio):
+                                <span class="badge bg-warning rounded-pill">{{ import_results.skipped_count }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Linhas com Erro:
+                                <span class="badge bg-danger rounded-pill">{{ import_results.errors_count }}</span>
+                            </li>
+                        </ul>
+
+                        {% if import_results.errors_list %}
+                            <h6 class="mt-3">Detalhes dos Erros/Avisos:</h6>
+                            <div style="max-height: 200px; overflow-y: auto; font-size: 0.9em; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                                {% for error_msg in import_results.errors_list %}
+                                    <p class="mb-1 text-danger">{{ error_msg }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

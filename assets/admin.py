@@ -1,27 +1,28 @@
 from django.contrib import admin
 from .models import IPAddress, Computador, ChamadoManutencao
 
+from import_export.admin import ImportExportModelAdmin # Importe a classe base
+from .resources import ComputadorResource # Importe seu resource
+
+
 @admin.register(IPAddress)
 class IPAddressAdmin(admin.ModelAdmin):
     list_display = ('address', 'descricao')
     search_fields = ('address', 'descricao')
 
 @admin.register(Computador)
-class ComputadorAdmin(admin.ModelAdmin):
-    list_display = ('nome_host', 'setor', 'ip_associado', 'status_reportado', 'status_rede', 'pos_x', 'pos_y') # Adicionados aqui
+class ComputadorAdmin(ImportExportModelAdmin): # Mude de admin.ModelAdmin para ImportExportModelAdmin
+    resource_class = ComputadorResource # Associe o resource
+    list_display = ('nome_host', 'setor', 'ip_associado', 'status_reportado', 'status_rede', 'pos_x', 'pos_y')
     list_filter = ('setor', 'status_reportado', 'status_rede')
     search_fields = ('nome_host', 'descricao', 'ip_associado__address')
     autocomplete_fields = ['ip_associado']
-    # Para facilitar a edição, podemos colocar pos_x e pos_y em um fieldset
     fieldsets = (
-        (None, {
-            'fields': ('nome_host', 'descricao', 'setor', 'ip_associado')
-        }),
-        ('Status e Posição', { # Novo fieldset
-            'fields': ('status_reportado', 'status_rede', 'pos_x', 'pos_y')
-        }),
-        # Outros fieldsets se necessário
+        (None, {'fields': ('nome_host', 'descricao', 'setor', 'ip_associado')}),
+        ('Status e Posição', {'fields': ('status_reportado', 'pos_x', 'pos_y')}),
+        # status_rede é preenchido pelo ping, não deve ser editável aqui geralmente
     )
+    readonly_fields = ('status_rede', 'ultimo_ping_status') # Tornar campos de ping apenas leitura
 
 @admin.register(ChamadoManutencao)
 class ChamadoManutencaoAdmin(admin.ModelAdmin):

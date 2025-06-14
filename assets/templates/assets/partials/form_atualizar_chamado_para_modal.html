@@ -1,29 +1,44 @@
-{# Apenas o formulário de atualização, igual ao bloco no detalhes_computador_modal_content.html #}
-{% if ultimo_chamado and ultimo_chamado.status_chamado != 'resolvido' and ultimo_chamado.status_chamado != 'fechado' %}
-    <hr class="my-4">
-    <h5>Atualizar Chamado Aberto: #{{ ultimo_chamado.id }} - {{ ultimo_chamado.titulo }}</h5>
-    <form id="form-atualizar-chamado-{{ computador.id }}" class="form-atualizar-chamado mt-3">
-        {% csrf_token %}
-        <input type="hidden" name="chamado_id" value="{{ ultimo_chamado.id }}">
-        {# ... campos do formulário (select, textarea, button) ... #}
-        <div class="mb-3">
-            <label for="chamado_status-{{ computador.id }}" class="form-label">Novo Status:</label>
-            <select name="status_chamado" id="chamado_status-{{ computador.id }}" class="form-select form-select-sm">
-                {% for value, display_name in ultimo_chamado.STATUS_CHAMADO_CHOICES %}
-                    <option value="{{ value }}" {% if ultimo_chamado.status_chamado == value %}selected{% endif %}>{{ display_name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="mb-3">
-            <label for="solucao_aplicada-{{ computador.id }}" class="form-label">Solução Aplicada / Notas:</label>
-            <textarea name="solucao_aplicada" id="solucao_aplicada-{{ computador.id }}" class="form-control form-control-sm" rows="3">{{ ultimo_chamado.solucao_aplicada|default:"" }}</textarea>
-        </div>
-        <button type="submit" class="btn btn-primary btn-sm">
-            <i class="bi bi-check-lg"></i> Atualizar Chamado
-        </button>
-    </form>
-{% elif ultimo_chamado %}
-    <p class="mt-3 text-muted"><em>Último chamado (#{{ ultimo_chamado.id }}) já está {{ ultimo_chamado.get_status_chamado_display }}.</em></p>
+{# assets/templates/assets/partials/form_atualizar_chamado_para_modal.html #}
+
+{% comment %}
+    Este parcial espera as seguintes variáveis de contexto:
+    - ultimo_chamado_valido_para_acao: O objeto do chamado a ser atualizado (ou None).
+    - computador: O objeto do computador ao qual o chamado pertence.
+    - user: O usuário logado (request.user).
+    - perms: O objeto de permissões do usuário (request.user.get_all_permissions() ou o padrão do Django).
+{% endcomment %}
+
+{% if perms.assets.change_chamadomanutencao %} {# VERIFICAÇÃO DE PERMISSÃO AQUI #}
+    {% if ultimo_chamado_valido_para_acao %}
+        <hr class="my-4">
+        <h6><i class="bi bi-pencil-square me-1"></i>Atualizar Chamado: #{{ ultimo_chamado_valido_para_acao.id }} - {{ ultimo_chamado_valido_para_acao.titulo }}</h6>
+        <form id="form-atualizar-chamado-obj-{{ ultimo_chamado_valido_para_acao.id }}" class="form-atualizar-chamado mt-2">
+            {% csrf_token %}
+            <input type="hidden" name="chamado_id" value="{{ ultimo_chamado_valido_para_acao.id }}">
+            <div class="mb-2">
+                <label for="chamado_status-{{ ultimo_chamado_valido_para_acao.id }}" class="form-label fw-bold">Novo Status:</label>
+                <select name="status_chamado" id="chamado_status-{{ ultimo_chamado_valido_para_acao.id }}" class="form-select form-select-sm">
+                    {% for value, display_name in ultimo_chamado_valido_para_acao.STATUS_CHAMADO_CHOICES %}
+                        <option value="{{ value }}" {% if ultimo_chamado_valido_para_acao.status_chamado == value %}selected{% endif %}>{{ display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-2">
+                <label for="solucao_aplicada-{{ ultimo_chamado_valido_para_acao.id }}" class="form-label">Solução Aplicada / Notas:</label>
+                <textarea name="solucao_aplicada" id="solucao_aplicada-{{ ultimo_chamado_valido_para_acao.id }}" class="form-control form-control-sm" rows="3">{{ ultimo_chamado_valido_para_acao.solucao_aplicada|default:"" }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-check-lg"></i> Atualizar Chamado
+            </button>
+        </form>
+    {% elif computador.chamadomanutencao_set.exists %} {# Se não há chamado ativo, mas existem chamados para o PC #}
+        <p class="mt-3 text-muted fst-italic"><em>Não há chamados ativos para interação imediata. O último chamado já foi resolvido/fechado.</em></p>
+    {% endif %}
+    {# Se não houver nenhum chamado (nem ativo nem resolvido), não mostra nada para este bloco #}
 {% else %}
-    <p class="mt-3 text-muted"><em>Nenhum chamado ativo para interação.</em></p>
+    {# O usuário não tem permissão para alterar chamados. Não mostramos o formulário. #}
+    {# Podemos opcionalmente mostrar uma mensagem, mas geralmente é melhor não mostrar nada. #}
+    {% if ultimo_chamado_valido_para_acao %}
+        {# <p class="mt-3 text-muted fst-italic"><em>(Visualizando detalhes do chamado ativo. Sem permissão para alterar.)</em></p> #}
+    {% endif %}
 {% endif %}

@@ -1,0 +1,52 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %} {# Se você for usar crispy-forms, caso contrário, renderize manualmente #}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">{{ page_title }}</h4>
+                </div>
+                <div class="card-body">
+                    <h5>Detalhes do Chamado:</h5>
+                    <p><strong>Computador:</strong> {{ chamado.computador.nome_host|default:"N/A" }}</p>
+                    <p><strong>Título Original:</strong> {{ chamado.titulo }}</p>
+                    <p><strong>Descrição Original:</strong><br>{{ chamado.descricao_problema|linebreaksbr }}</p>
+                    <p><strong>Aberto por:</strong> {{ chamado.aberto_por.username|default:"Sistema" }} em {{ chamado.data_abertura|date:"d/m/Y H:i" }}</p>
+                    
+                    <hr>
+                    <h5>Atualizar Chamado:</h5>
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {# Opção 2: Como parágrafos (Django padrão) #}
+                        {# {{ form.as_p }} #}
+
+                        {# Opção 3: Com Crispy Forms (Requer instalação e configuração) #}
+                        {{ form|crispy }}
+
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save-fill"></i> Salvar Alterações
+                            </button>
+                            <a href="{% url 'assets:lista_chamados' %}" class="btn btn-outline-secondary ms-2">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+{# Scripts específicos para esta página, se necessário no futuro #}
+{% endblock %}

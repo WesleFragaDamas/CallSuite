@@ -1,0 +1,17 @@
+{# templates/403.html #}
+{% extends "core/base.html" %}
+
+{% block title %}Acesso Negado{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="alert alert-danger text-center">
+        <h1><i class="bi bi-exclamation-octagon-fill"></i> Acesso Negado (403)</h1>
+        <p class="lead">Você não tem permissão para acessar esta página ou recurso.</p>
+        <p>Se você acredita que isso é um erro, por favor, entre em contato com o administrador do sistema.</p>
+        <hr>
+        <a href="{% url 'dashboard' %}" class="btn btn-primary">Voltar ao Dashboard</a>
+        <a href="{% url 'logout' %}" class="btn btn-outline-secondary ms-2">Fazer Logout</a>
+    </div>
+</div>
+{% endblock %}

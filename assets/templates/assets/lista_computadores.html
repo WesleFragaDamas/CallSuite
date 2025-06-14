@@ -1,0 +1,96 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - CallSuite{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
+        <h1>{{ page_title }}</h1>
+        <div>
+            {% if perms.assets.add_computador %}
+                {# Futuro: Link para adicionar novo computador manualmente #}
+
+            {% endif %}
+            {% if perms.assets.add_computador %}
+                <a href="{% url 'assets:importar_computadores_csv_ui' %}" class="btn btn-info"> {# URL ATUALIZADA #}
+                    <i class="bi bi-file-earmark-arrow-up-fill"></i> Importar CSV
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if computadores %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Nome Host</th>
+                        <th>Setor</th>
+                        <th>IP Associado</th>
+                        <th>Descrição</th>
+                        <th>Posição (X, Y)</th>
+                        <th>Status Reportado</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comp in computadores %}
+                    <tr>
+                        <td>{{ comp.nome_host }}</td>
+                        <td>{{ comp.setor|default:"-" }}</td>
+                        <td>{{ comp.ip_associado.address|default:"-" }}</td>
+                        <td>{{ comp.descricao|truncatechars:40|default:"-" }}</td>
+                        <td>({{ comp.pos_x }}, {{ comp.pos_y }})</td>
+                        <td>
+                            <span class="badge rounded-pill
+                                {% if comp.status_reportado == 'ok' %}bg-success-subtle text-success-emphasis
+                                {% elif comp.status_reportado == 'problema' %}bg-danger-subtle text-danger-emphasis
+                                {% elif comp.status_reportado == 'manutencao' %}bg-warning-subtle text-warning-emphasis
+                                {% else %}bg-secondary-subtle text-secondary-emphasis{% endif %}">
+                                {{ comp.get_status_reportado_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if perms.assets.change_computador %}
+                                {# Futuro: Link para editar este computador #}
+
+                                <span class="text-muted fst-italic">(Editar em breve)</span>
+                            {% else %}
+                                <span class="text-muted fst-italic">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {# TODO: Adicionar Paginação aqui #}
+    {% else %}
+        <div class="alert alert-info">
+            Não há computadores cadastrados no momento.
+        </div>
+    {% endif %}
+</div>
+
+{# Futuro: Modal para importação de CSV ou link para página dedicada #}
+
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+// JavaScript específico para a página lista_computadores.html
+document.addEventListener('DOMContentLoaded', function() {
+    const btnImportarComputadores = document.querySelector('.btn-importar-computadores-csv-ui');
+    if (btnImportarComputadores) {
+        btnImportarComputadores.addEventListener('click', function(event) {
+            event.preventDefault();
+            alert('TODO: Implementar a interface de upload e processamento de CSV aqui!');
+            // No futuro, isso abriria um modal ou redirecionaria para uma página de importação.
+        });
+    }
+    // Outros listeners para esta página (ex: para botões de editar computador)
+});
+</script>
+{% endblock %}

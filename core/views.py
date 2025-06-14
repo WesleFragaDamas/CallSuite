@@ -1,10 +1,14 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
-@login_required # Garante que apenas usuários logados acessem
 def dashboard_view(request):
-    return render(request, 'core/dashboard.html')
-
-# Não precisamos de uma view para login/logout aqui,
-# pois estamos usando as views embutidas do Django.
-# A view de login padrão do Django renderizará 'registration/login.html'
+    # Você pode adicionar lógica aqui para mostrar diferentes coisas no dashboard
+    # com base no grupo do request.user, por exemplo:
+    # if request.user.groups.filter(name='Operador').exists():
+    #    # contexto específico do operador
+    # elif request.user.groups.filter(name='Supervisor').exists():
+    #    # contexto específico do supervisor
+    context = {
+        'page_title': 'Dashboard Principal'
+    }
+    return render(request, 'core/dashboard.html', context)

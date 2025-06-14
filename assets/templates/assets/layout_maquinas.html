@@ -68,6 +68,19 @@
         color: #000;
         border-color: #ffc107;
     }
+    .smart-guideline-h, .smart-guideline-v {
+    position: absolute; /* Relativo ao layoutMapCanvas */
+    background-color: #ff00ff; /* Cor chamativa como magenta */
+    z-index: 1000; /* Para ficar por cima de outros elementos */
+    }
+    .smart-guideline-h {
+        width: 100%; /* Ou a largura do canvas */
+        height: 1px;
+    }
+    .smart-guideline-v {
+        width: 1px;
+        height: 100%; /* Ou a altura do canvas */
+    }
 </style>
 {% endblock %}
 
@@ -78,9 +91,12 @@
         <button id="zoom-out-btn" class="btn btn-outline-secondary btn-sm" title="Diminuir Zoom"><i class="bi bi-zoom-out"></i></button>
         <button id="zoom-in-btn" class="btn btn-outline-secondary btn-sm" title="Aumentar Zoom"><i class="bi bi-zoom-in"></i></button>
         <button id="zoom-reset-btn" class="btn btn-outline-info btn-sm" title="Restaurar Zoom (100%)"><i class="bi bi-arrow-counterclockwise"></i> <span id="zoom-level-display">100%</span></button>
-        <button id="toggle-edit-mode-btn" class="btn btn-outline-warning btn-sm" title="Ativar Modo de Edição de Layout">
-           <i class="bi bi-pencil-square"></i> Editar Layout
-        </button>
+        {% if perms.assets.change_computador %} {# <<< ADICIONE ESTA CONDIÇÃO #}
+            <button id="toggle-edit-mode-btn" class="btn btn-outline-warning btn-sm" title="Ativar Modo de Edição de Layout">
+                <i class="bi bi-pencil-square"></i> Editar Layout
+            </button>
+        {% endif %}
+
         <button id="zoom-fit-btn" class="btn btn-outline-success btn-sm" title="Ajustar Visualização ao Conteúdo">
             <i class="bi bi-arrows-fullscreen"></i> Ajustar
         </button>

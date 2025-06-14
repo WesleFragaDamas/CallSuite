@@ -1,0 +1,4 @@
+/* static/css/style.css */
+body {
+    overflow-x: hidden; /* Prevenir scroll horizontal desnecessário */
+}
