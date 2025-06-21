@@ -1,0 +1,134 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+{% load list_filters %}  {# <<< ADICIONE/GARANTA ESTA LINHA #}
+
+
+{% block title %}{{ page_title }} - CallSuite{% endblock %}
+
+{% block extra_head %}
+{{ block.super }}
+<style>
+    .formset-item legend { font-size: 1rem; font-weight: bold; }
+    .interval-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 15px; } /* Aumentei minmax */
+    .hour-block { padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f9f9f9; }
+    .hour-block-header { font-weight: bold; text-align: center; margin-bottom: 8px; font-size: 0.85em; background-color: #efefef; padding: 4px; border-radius: 3px 3px 0 0; }
+    .interval-input-group { display: flex; align-items: center; margin-bottom: 5px; justify-content: center; }
+    .interval-input-group input[type="number"].form-control-sm { width: 75px !important; text-align: center !important; padding: 0.25rem !important; font-size: 0.8rem !important; }
+    .interval-input-group input[type="hidden"],
+    .interval-input-group .form-label { display: none; }
+    input[type="date"].form-control-sm { max-width: 170px; }
+    .turno-form .row > div { margin-bottom: 0.5rem; } /* Espaçamento para formset de turno */
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <h1>{{ page_title }}</h1>
+    <hr>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.media }}
+
+        <div class="card mb-4">
+            <div class="card-header">Parâmetros do Cenário</div>
+            <div class="card-body">{{ form|crispy }}</div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">Componentes de Shrinkage (%)</div>
+            <div class="card-body">
+                {{ shrinkage_formset.management_form|crispy }}
+                <div id="shrinkage-forms-container">
+                    {% for shrinkage_form in shrinkage_formset %}
+                        <div class="formset-item shrinkage-form mb-2 p-3 border rounded">
+                            {% if shrinkage_form.instance.pk %}{{ shrinkage_form.id }}{% endif %}
+                            <div class="row g-2 align-items-center">
+                                <div class="col">{{ shrinkage_form.nome_componente|as_crispy_field }}</div>
+                                <div class="col">{{ shrinkage_form.percentual|as_crispy_field }}</div>
+                                {% if shrinkage_formset.can_delete %}
+                                <div class="col-auto d-flex align-items-end pb-1">
+                                    {{ shrinkage_form.DELETE }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {# Adicionar JS para um botão "Adicionar Componente" para o shrinkage_formset se extra=0 #}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">Volumes de Chamadas por Intervalo (00:00 - 23:30)</div>
+            <div class="card-body">
+                {{ volume_formset.management_form|crispy }}
+                <div class="interval-grid-container">
+                    {# Iteramos sobre os 48 formulários do formset. A view garante que eles existem e estão na ordem correta. #}
+                    {% for vol_form in volume_formset %}
+                        <div class="hour-block">
+                            <div class="hour-block-header">
+                                {# Usamos o forloop.counter0 para pegar o IntervaloProgramado correspondente da lista #}
+                                {{ todos_intervalos_programados|list_item:forloop.counter0|time:"H:i" }}
+                            </div>
+                            {{ vol_form.id }}
+                            {{ vol_form.intervalo_programado }} {# HiddenInput com o PK do IntervaloProgramado, preenchido pela view no 'initial' #}
+                            <div class="interval-input-group justify-content-center">
+                                {{ vol_form.volume_chamadas }}
+                            </div>
+                            {# ... exibição de erros ... #}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# NOVO: Formset para Turnos Planejados #}
+        <div class="card mb-4">
+            <div class="card-header">Definição de Turnos de Agentes</div>
+            <div class="card-body">
+                {{ turno_formset.management_form|crispy }}
+                <div id="turno-forms-container">
+                    {% for turno_f in turno_formset %}
+                        <div class="formset-item turno-form mb-3 p-3 border rounded">
+                            {% if turno_f.instance.pk %}{{ turno_f.id }}{% endif %}
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-4">{{ turno_f.hora_inicio_turno|as_crispy_field }}</div>
+                                <div class="col-md-4">{{ turno_f.hora_fim_turno|as_crispy_field }}</div>
+                                <div class="col-md-3">{{ turno_f.numero_agentes_neste_turno|as_crispy_field }}</div>
+                                {% if turno_formset.can_delete %}
+                                <div class="col-md-1 d-flex align-items-end pb-1">
+                                    {{ turno_f.DELETE }}
+                                </div>
+                                {% endif %}
+                            </div>
+                             {% for field, errors in turno_f.errors.items %}
+                                {% for error in errors %}
+                                    <div class="text-danger small mt-1">{{ field|capfirst }}: {{ error }}</div>
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+                 <p><small class="text-muted">Adicione os turnos planejados. O formset acima permite {{ turno_formset.extra }} novo(s) turno(s) em branco. Use o botão "Adicionar" abaixo se precisar de mais.</small></p>
+                {# TODO: Adicionar botão e JS para "Adicionar outro Turno" dinamicamente #}
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-success"><i class="bi bi-save-fill"></i> Salvar Cenário</button>
+            <a href="{% url 'dimensionamento:lista_cenarios' %}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+// JS para adicionar/remover forms de SHINKAGE dinamicamente (se `extra=0` no formset)
+// Pode usar uma lib como django-dynamic-formset ou JS puro.
+// Por enquanto, com `extra=1` no shrinkage_formset, um form em branco já aparece.
+</script>
+{% endblock %}

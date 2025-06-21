@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'crispy_bootstrap5',  # Adicione esta linha se estiver usando Bootstrap 5
 
     'import_export',  # <<< ADICIONE ESTA LINHA
+    'dimensionamento.apps.DimensionamentoConfig'
 
 ]
 

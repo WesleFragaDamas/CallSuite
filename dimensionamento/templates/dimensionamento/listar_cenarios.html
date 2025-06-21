@@ -1,0 +1,86 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - CallSuite{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ page_title }}</h1>
+        {% if perms.dimensionamento.add_cenariodimensionamento %}
+            <a href="{% url 'dimensionamento:criar_cenario' %}" class="btn btn-success">
+                <i class="bi bi-plus-circle-fill"></i> Novo Cenário
+            </a>
+        {% endif %}
+    </div>
+
+    {% if page_obj.object_list %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Nome do Cenário</th>
+                        <th>Tipo</th>
+                        <th>Data Referência</th>
+                        <th>Criado por</th>
+                        <th>Última Modificação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cenario in page_obj.object_list %}
+                    <tr>
+                        <td>{{ cenario.nome_cenario }}</td>
+                        <td>{{ cenario.get_tipo_dimensionamento_display }}</td>
+                        <td>{{ cenario.data_referencia|date:"d/m/Y" }}</td>
+                        <td>{{ cenario.usuario_criador.username|default:"-" }}</td>
+                        <td>{{ cenario.data_modificacao|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'dimensionamento:resultados_cenario' cenario_id=cenario.id %}" class="btn btn-sm btn-info me-1" title="Ver Resultados">
+                                <i class="bi bi-bar-chart-line-fill"></i> Resultados
+                            </a>
+                            {% if perms.dimensionamento.change_cenariodimensionamento %}
+                            <a href="{% url 'dimensionamento:editar_cenario' cenario_id=cenario.id %}" class="btn btn-sm btn-outline-primary me-1" title="Editar Cenário">
+                                <i class="bi bi-pencil-fill"></i> Editar
+                            </a>
+                            {% endif %}
+                            {% if perms.dimensionamento.delete_cenariodimensionamento %}
+                            {# Futuro: Botão de deletar com confirmação #}
+                            {# <button class="btn btn-sm btn-outline-danger btn-deletar-cenario" data-cenario-id="{{ cenario.id }}"><i class="bi bi-trash-fill"></i></button> #}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# Paginação #}
+        {% if page_obj.has_other_pages %}
+            <nav aria-label="Paginação de cenários">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page=1">« Primeira</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+                    {% endif %}
+
+                    <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span></li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Última »</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="alert alert-info">
+            Nenhum cenário de dimensionamento encontrado.
+            {% if perms.dimensionamento.add_cenariodimensionamento %}
+                <a href="{% url 'dimensionamento:criar_cenario' %}" class="alert-link">Crie o primeiro!</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

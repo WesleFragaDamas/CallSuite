@@ -23,7 +23,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')), # Para login, logout, etc.
     path('', include('core.urls')),
-    path('assets/', include('assets.urls'))
+    path('assets/', include('assets.urls')),
+    path('dimensionamento/', include('dimensionamento.urls')),
 
     # Vamos adicionar uma URL para a nossa página inicial do 'core' depois
 ]
