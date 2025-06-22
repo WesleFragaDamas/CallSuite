@@ -179,9 +179,9 @@ def calcular_dimensionamento_receptivo(cenario):  # cenario é uma instância de
             'volume_chamadas': volume_neste_intervalo,
             'agentes_brutos_erlang': int(round(agentes_brutos_erlang)),
             'agentes_recomendados_com_shrinkage': int(round(agentes_recomendados_com_shrinkage)),
-            # A coluna "Ag. Alocados (Editável)" na UI será inicializada com este valor
+            'agentes_acumulados_oferta_turnos': agentes_acumulados_neste_intervalo,  # Calculado dos turnos
             'agentes_para_simulacao_inicial': agentes_acumulados_neste_intervalo,
-            'agentes_acumulados_oferta_turnos': agentes_acumulados_neste_intervalo,  # Este é o real dos turnos
+            # Para o valor inicial do input editável
             'sla_previsto_base': sla_previsto_base,  # SLA com base na oferta dos turnos
             'ocupacao_prevista_base': ocupacao_prevista_base,  # Ocupação com base na oferta dos turnos
         })

@@ -7,27 +7,107 @@
 {% block extra_head %}
 {{ block.super }}
 <style>
-    .results-table th, .results-table td { font-size: 0.8rem; padding: 0.35rem; text-align: center; vertical-align: middle; }
-    .results-table input[type="number"].input-agentes-simulados { /* Renomeado para clareza */
-        width: 65px;
-        padding: 0.2rem;
-        font-size: 0.8rem;
+    /* Estilos gerais para a tabela de resultados */
+    .results-table th,
+    .results-table td {
+        font-size: 0.8rem;          /* Tamanho da fonte menor para mais dados */
+        padding: 0.4rem 0.5rem;     /* Padding interno das células */
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    /* Estilo para os inputs na coluna editável */
+    .results-table input[type="number"].input-agentes-simulados {
+        width: 65px;                /* Largura do input */
+        padding: 0.2rem 0.3rem;     /* Padding interno do input */
+        font-size: 0.8rem;          /* Tamanho da fonte do input */
         text-align: center;
         border-radius: 0.2rem;
+        border: 1px solid #ced4da; /* Borda sutil */
+        box-shadow: inset 0 1px 1px rgba(0,0,0,.075); /* Sombra interna leve */
     }
-    .table-sticky-header thead th { position: sticky; top: 0; z-index: 1; background-color: #f8f9fa !important; /* Importante para sobrepor scrollbars do Bootstrap */}
-    .table-responsive.fixed-header { max-height: 70vh; /* Altura da tabela antes do scroll interno */ }
+
+    /* Container da tabela com scroll e cabeçalho fixo */
+    .table-responsive.fixed-header {
+        max-height: 70vh;
+        overflow-y: auto;
+        position: relative; /* Mantém ou adiciona se não estiver */
+        background-color: #fff;
+    }
+
+    /* Estilos para o cabeçalho fixo/grudento da tabela */
+    .table-sticky-header thead th {
+        position: -webkit-sticky;   /* Para compatibilidade com Safari */
+        position: sticky;
+        top: 0;                     /* Gruda no topo do container .fixed-header */
+        background-color: #e9ecef;  /* COR DE FUNDO OPACA ESSENCIAL (cinza claro Bootstrap) */
+        color: #212529;             /* Cor do texto do cabeçalho */
+        z-index: 10;                /* Z-index alto para ficar por cima do tbody */
+        border-bottom: 2px solid #adb5bd !important; /* Borda inferior mais forte */
+        /* box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* Sombra sutil abaixo do cabeçalho (opcional) */
+    }
+    /* Garante que a primeira linha do tbody não cole no cabeçalho (opcional) */
+    /* .results-table tbody tr:first-child td {
+        padding-top: 0.6rem;
+    } */
+    .results-table {
+        width: 100%;
+        border-collapse: collapse; /* Ajuda no alinhamento de bordas */
+    }
+    .results-table thead { /* Aplicar ao thead inteiro */
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0;
+        z-index: 20; /* Z-index alto para o thead */
+        /* background-color: #e9ecef;  A cor de fundo deve estar nos THs */
+    }
+    .results-table thead th {
+        /* position: sticky; top: 0;  JÁ ESTÁ NO THEAD */
+        background-color: #e9ecef !important; /* COR DE FUNDO OPACA ESSENCIAL */
+        color: #212529;
+        /* z-index: 10;  O z-index do thead deve ser suficiente */
+        border-bottom: 2px solid #adb5bd !important;
+        /* Adicionar uma borda lateral para separar as colunas do cabeçalho */
+        /* border-right: 1px solid #dee2e6; */
+    }
+
+    .results-table tbody {
+        /* Opcional: Tentar dar um z-index menor ao tbody se o problema persistir,
+           mas geralmente não é necessário se o thead tiver um z-index maior. */
+        /* position: relative; */ /* Para criar um contexto de empilhamento para o z-index abaixo */
+        /* z-index: 1; */
+    }
 
     /* Classes para highlight de SLA e Ocupação */
-    .highlight-sla-bad { color: #dc3545 !important; font-weight: bold !important; }
-    .highlight-sla-good { color: #198754 !important; }
-    .highlight-ocup-high { color: #ffc107 !important; /* Laranja para ocupação alta */ }
-    .highlight-ocup-very-high { color: #dc3545 !important; font-weight: bold !important; } /* Vermelho para muito alta */
+    .highlight-sla-bad {
+        color: #a94442 !important; /* Vermelho escuro para texto */
+        background-color: #f2dede !important; /* Fundo rosa claro */
+        font-weight: bold !important;
+    }
+    .highlight-sla-good {
+        color: #3c763d !important; /* Verde escuro para texto */
+        background-color: #dff0d8 !important; /* Fundo verde claro */
+    }
+    .highlight-ocup-high { /* Ocupação alta - Atenção */
+        /* color: #8a6d3b !important; */ /* Pode usar só fundo */
+        background-color: #fcf8e3 !important; /* Fundo amarelo claro */
+    }
+    .highlight-ocup-very-high { /* Ocupação muito alta - Crítico */
+        color: #a94442 !important;
+        background-color: #f2dede !important;
+        font-weight: bold !important;
+    }
+
+    /* Container para o rodapé da página, para garantir que o botão "Voltar" seja visível */
+    .content-container-resultados {
+        padding-bottom: 60px; /* Aumenta o espaço no final da página */
+    }
+
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="container-fluid mt-4 mb-5">
+{{% block content %}
+<div class="container-fluid mt-4 mb-5 content-container-resultados">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="mb-0">{{ page_title }}</h1>
@@ -61,19 +141,19 @@
     <div class="table-responsive fixed-header">
         <table class="table table-bordered table-hover results-table table-sticky-header">
             <thead class="table-light">
-                <tr>
-                    <th rowspan="2" class="align-middle">Intervalo</th>
-                    <th rowspan="2" class="align-middle">Chamadas <br/><small>(Input)</small></th>
-                    <th colspan="2">Dimensionado <small>(Erlang+Shrink.)</small></th>
-                    <th colspan="3">Simulação Interativa</th>
-                </tr>
-                <tr>
-                    <th>Ag. Brutos <br/><small>(Erlang)</small></th>
-                    <th>Ag. Rec. <br/><small>(+Shrink.)</small></th>
-                    <th>Ag. Simulados <br/><small>(Editável)</small></th>
-                    <th>SLA Simulado <br/><small>(%)</small></th>
-                    <th>Ocup. Simulada <br/><small>(%)</small></th>
-                </tr>
+    <tr>
+        <th rowspan="2" class="align-middle">Intervalo</th>
+        <th rowspan="2" class="align-middle">Chamadas <br/><small>(Input)</small></th>
+        <th colspan="2">Dimensionado <small>(Base)</small></th>
+        <th colspan="3">Simulação Interativa</th>
+    </tr>
+    <tr>
+        <th>Ag. Brutos <br/><small>(Erlang)</small></th>
+        <th>Ag. Rec. <br/><small>(+Shrink.)</small></th>
+        <th>Ag. Simulados <br/><small>(Editável)</small></th> {# Onde o usuário edita #}
+        <th>SLA Simulado <br/><small>(%)</small></th>    {# Atualizado por JS #}
+        <th>Ocup. Simulada <br/><small>(%)</small></th>   {# Atualizado por JS #}
+    </tr>
             </thead>
             <tbody>
                 {% for res in resultados %}
@@ -88,15 +168,15 @@
                     <td>
                         <input type="number"
                                class="form-control form-control-sm input-agentes-simulados"
-                               value="{{ res.agentes_para_simulacao_inicial|floatformat:0 }}"
+                               value="{{ res.agentes_para_simulacao_inicial|floatformat:0 }}" {# Valor inicial do input #}
                                data-intervalo-pk-str="{{ res.intervalo_pk_str }}"
                                min="0" step="1">
                     </td>
                     <td class="sla-simulado-display">
-                        {{ res.sla_previsto_base|floatformat:2 }}%
+                        {{ res.sla_previsto_base|floatformat:2 }}% {# Valor inicial #}
                     </td>
                     <td class="ocupacao-simulada-display">
-                        {{ res.ocupacao_prevista_base|floatformat:2 }}%
+                        {{ res.ocupacao_prevista_base|floatformat:2 }}% {# Valor inicial #}
                     </td>
                 </tr>
                 {% endfor %}
@@ -106,11 +186,10 @@
     {% elif not erro_calculo %}
         <div class="alert alert-info mt-3">Nenhum resultado para exibir. Verifique os parâmetros e dados do cenário ou se o cálculo foi executado.</div>
     {% endif %}
-    <div class="mt-3">
-        <a href="{% url 'dimensionamento:lista_cenarios' %}" class="btn btn-secondary btn-sm">Voltar à Lista de Cenários</a>
-        {# Futuro: Botão para Salvar Simulação Otimizada / Exportar Resultados #}
+         <div class="mt-4"> {# Aumentei a margem do botão de voltar #}
+            <a href="{% url 'dimensionamento:lista_cenarios' %}" class="btn btn-secondary btn-sm">Voltar à Lista de Cenários</a>
+        </div>
     </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -120,10 +199,10 @@
     const META_SLA_ALVO_PERCENT_JS = parseFloat("{{ nivel_servico_percentual_meta_para_js|default:'80.0' }}");
 
     // =================================================================================
-    // == FUNÇÕES JAVASCRIPT DE ERLANG C DE EXEMPLO (SUBSTITUA PELAS SUAS DEPOIS) ==
+    // == FUNÇÕES JAVASCRIPT DE ERLANG C DE EXEMPLO (COLE AS SUAS AQUI QUANDO FOR O MOMENTO) ==
     // =================================================================================
     function factorialJs(n_float) {
-        let n = Math.floor(n_float); // Garante que é inteiro para o loop
+        let n = Math.floor(n_float);
         if (n < 0) return NaN;
         if (n === 0 || n === 1) return 1;
         let result = 1;
@@ -137,40 +216,41 @@
         let N = Math.floor(N_float);
         if (N <= 0) return 1.0;
         if (A <= 0) return 0.0;
-        if (N <= A) return 0.99999;
+        if (N <= A) return 0.9999999;
 
         try {
             let sumVal = 0;
             for (let k = 0; k < N; k++) {
-                const termK = Math.pow(A, k) / factorialJs(k);
-                if (!isFinite(termK)) { sumVal = Infinity; break; } // Evita NaN se A^k for muito grande
-                sumVal += termK;
+                const termoK = Math.pow(A, k) / factorialJs(k);
+                if (!isFinite(termoK)) { sumVal = Infinity; break; }
+                sumVal += termoK;
             }
-            if (!isFinite(sumVal)) return 0.99999;
+            if (!isFinite(sumVal)) return 0.9999999;
 
+            const termoPrincipalNumerador = Math.pow(A, N) / factorialJs(N);
+            if (!isFinite(termoPrincipalNumerador)) return 0.9999999;
 
-            const term_A_N_div_N_fact = (Math.pow(A, N) / factorialJs(N));
-            if (!isFinite(term_A_N_div_N_fact)) return 0.99999;
+            // Garante que N - A > 0 antes da divisão
+            if ((N - A) <= 0) return 0.9999999; // Já coberto por N <= A, mas para segurança
 
-            const numeratorPw = term_A_N_div_N_fact * (N / (N - A));
-            if (!isFinite(numeratorPw) || (N-A) <= 0) return 0.99999; // N deve ser > A
+            const termoPrincipal = termoPrincipalNumerador * (N / (N - A));
+            if (!isFinite(termoPrincipal)) return 0.9999999;
 
+            if (sumVal + termoPrincipal === 0) return 1.0;
 
-            const denominatorPw = sumVal + numeratorPw;
-            if (denominatorPw === 0) return 1.0;
-
-            let Pw = numeratorPw / denominatorPw;
+            let Pw = termoPrincipal / (sumVal + termoPrincipal);
             return Math.max(0, Math.min(Pw, 1.0));
         } catch (e) {
-            console.error("Erro em erlangCProbabilityOfWaiting:", e, "A:", A, "N:", N);
-            return 0.99999;
+            console.error("JS Erro em erlangCProbabilityOfWaiting:", e, "A:", A, "N:", N);
+            return 0.9999999;
         }
     }
 
-    function calculateServiceLevelJs(A, N, tmaSeconds, targetTimeSeconds) {
+    function calculateServiceLevelJs(A, N_float, tmaSeconds, targetTimeSeconds) {
+        let N = Math.floor(N_float);
         if (N <= 0 || tmaSeconds <= 0) return 0.0;
         if (A <= 0) return 1.0;
-        if (N <= A) return 0.00001;
+        if (N <= A) return 0.000001;
 
         const Pw = erlangCProbabilityOfWaiting(A, N);
         const exponentFactor = (N - A) * (targetTimeSeconds / tmaSeconds);
@@ -178,19 +258,24 @@
         return Math.max(0, Math.min(serviceLevel, 1.0));
     }
 
-    function calculateOccupancyJs(A, N) {
-        if (N === 0) return Infinity;
+    function calculateOccupancyJs(A, N_float) {
+        let N = Math.floor(N_float);
+        if (N === 0) return A > 0 ? Infinity : 0.0;
         if (A === 0) return 0.0;
         const occupancy = A / N;
-        return Math.min(1.0, occupancy);
+        return occupancy;
     }
     // =================================================================================
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Função showToast (mantenha-a como estava)
+        const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]')?.value; // Pode ser útil no futuro
+        const cenarioId = "{{ cenario.id|default:''|escapejs }}"; // Ainda útil se precisarmos de AJAX para salvar simulação
+
+        console.log("JS Resultados: Cenario ID:", cenarioId, "Meta SLA:", META_SLA_ALVO_PERCENT_JS);
+
         function showToast(message, type = 'info') {
             const container = document.querySelector('.toast-container');
-            if (!container) { console.warn("Toast container não encontrado, usando console para:", message); return; }
+            if (!container) { console.warn("Toast container não encontrado. Msg:", message); return; }
             const id = 'toast-' + Date.now();
             const bgClass = (type === 'error' || type === 'danger' ? 'danger' : (type === 'warning' ? 'warning' : (type === 'success' ? 'success' : 'info')));
             const html = `<div id="${id}" class="toast align-items-center text-white bg-${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true"><div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div></div>`;
@@ -222,59 +307,45 @@
                 if (isNaN(agentesSimulados) || agentesSimulados < 0) {
                     showToast("Agentes simulados: valor inválido.", "danger");
                     this.value = this.dataset.previousValue;
-                    // Recalcular com o valor anterior para restaurar SLA/Ocup
-                    // Ou simplesmente não fazer nada e deixar os valores antigos de SLA/Ocup
-                    // Para simplificar, vamos recalcular com o valor anterior:
-                    const prevAgentes = parseInt(this.dataset.previousValue);
-                    if (!isNaN(prevAgentes)) {
-                         // Re-chama a lógica de cálculo com o valor anterior
-                        performCalculationAndUpdateRow(prevAgentes, volumeIntervalo, tmaCenarioSeg, metaSlaTempoSeg, slaCell, ocupacaoCell);
-                    }
+                    performCalculationAndUpdateRow(parseInt(this.dataset.previousValue), volumeIntervalo, tmaCenarioSeg, metaSlaTempoSeg, slaCell, ocupacaoCell);
                     return;
                 }
-                this.dataset.previousValue = this.value; // Atualiza o "anterior" para o novo válido
+                this.dataset.previousValue = this.value;
 
                 performCalculationAndUpdateRow(agentesSimulados, volumeIntervalo, tmaCenarioSeg, metaSlaTempoSeg, slaCell, ocupacaoCell);
             });
         });
 
         function performCalculationAndUpdateRow(agentes, volume, tma, metaTempo, slaCell, ocupacaoCell) {
-            if (volume === 0) {
-                if(slaCell) slaCell.textContent = "100.00%";
-                if(ocupacaoCell) ocupacaoCell.textContent = "0.00%";
-                applyHighlights(slaCell, 100, ocupacaoCell, 0);
+            if (!slaCell || !ocupacaoCell) {
+                console.error("Células de SLA ou Ocupação não encontradas para atualização.");
                 return;
             }
+
+            if (volume === 0) {
+                slaCell.textContent = "100.00%"; ocupacaoCell.textContent = "0.00%";
+                applyHighlights(slaCell, 100, ocupacaoCell, 0); return;
+            }
             if (agentes === 0 && volume > 0) {
-                if(slaCell) slaCell.textContent = "0.00%";
-                if(ocupacaoCell) ocupacaoCell.textContent = "Inf%";
-                applyHighlights(slaCell, 0, ocupacaoCell, Infinity);
-                return;
+                slaCell.textContent = "0.00%"; ocupacaoCell.textContent = "Inf%";
+                applyHighlights(slaCell, 0, ocupacaoCell, Infinity); return;
             }
 
             const volumeHoraEquivalente = volume * 2;
             const trafficIntensityA = (volumeHoraEquivalente * tma) / 3600.0;
 
-            let novoSlaPrevistoPercent = 0;
-            let novaOcupacaoPrevistaPercent = 0;
+            let novoSlaPrevistoPercent = 0; let novaOcupacaoPrevistaPercent = 0;
 
-            if (typeof calculateServiceLevelJs === 'function' && typeof calculateOccupancyJs === 'function') {
-                novoSlaPrevistoPercent = calculateServiceLevelJs(trafficIntensityA, agentes, tma, metaTempo) * 100;
-                novaOcupacaoPrevistaPercent = calculateOccupancyJs(trafficIntensityA, agentes) * 100;
-                novaOcupacaoPrevistaPercent = Math.min(100, (novaOcupacaoPrevistaPercent > 0 && isFinite(novaOcupacaoPrevistaPercent)) ? novaOcupacaoPrevistaPercent : 0);
-            } else {
-                console.error("Funções Erlang JS (calculateServiceLevelJs, calculateOccupancyJs) não definidas!");
-                if(slaCell) slaCell.textContent = "Erro Calc.";
-                if(ocupacaoCell) ocupacaoCell.textContent = "Erro Calc.";
-                return;
-            }
+            // Chamando as funções Erlang que estão no mesmo escopo <script> agora
+            novoSlaPrevistoPercent = calculateServiceLevelJs(trafficIntensityA, agentes, tma, metaTempo) * 100;
+            novaOcupacaoPrevistaPercent = calculateOccupancyJs(trafficIntensityA, agentes) * 100;
 
-            if(slaCell) slaCell.textContent = `${novoSlaPrevistoPercent.toFixed(2)}%`;
-            if(ocupacaoCell) ocupacaoCell.textContent = `${novaOcupacaoPrevistaPercent.toFixed(2)}%`;
+            const ocupDisplayValue = isFinite(novaOcupacaoPrevistaPercent) ? novaOcupacaoPrevistaPercent.toFixed(2) : "Inf";
+            slaCell.textContent = `${novoSlaPrevistoPercent.toFixed(2)}%`;
+            ocupacaoCell.textContent = `${ocupDisplayValue}%`;
 
             applyHighlights(slaCell, novoSlaPrevistoPercent, ocupacaoCell, novaOcupacaoPrevistaPercent);
         }
-
 
         function applyHighlights(slaCell, slaValue, ocupacaoCell, ocupValue) {
             if (slaCell && !isNaN(slaValue)) {
@@ -282,30 +353,24 @@
                 if (slaValue < META_SLA_ALVO_PERCENT_JS) slaCell.classList.add('highlight-sla-bad');
                 else if (slaValue >= 99.9) slaCell.classList.add('highlight-sla-good');
             }
-            if (ocupacaoCell && !isNaN(ocupValue) && isFinite(ocupValue)) { // Adicionado isFinite
+            if (ocupacaoCell && isFinite(ocupValue) && !isNaN(ocupValue)) {
                 ocupacaoCell.classList.remove('highlight-ocup-very-high', 'highlight-ocup-high');
                 if (ocupValue > 95) ocupacaoCell.classList.add('highlight-ocup-very-high');
                 else if (ocupValue > 85) ocupacaoCell.classList.add('highlight-ocup-high');
-            } else if (ocupacaoCell && !isFinite(ocupValue)) { // Caso de Ocupação Infinita
+            } else if (ocupacaoCell && !isFinite(ocupValue)) {
                  ocupacaoCell.classList.remove('highlight-ocup-very-high', 'highlight-ocup-high');
-                 ocupacaoCell.classList.add('highlight-ocup-very-high'); // Trata como muito alta
+                 ocupacaoCell.classList.add('highlight-ocup-very-high');
             }
         }
 
-        // Aplica highlights iniciais
         document.querySelectorAll('.results-table tbody tr').forEach(row => {
-            const slaCell = row.querySelector('.sla-simulado-display');
-            const ocupacaoCell = row.querySelector('.ocupacao-simulada-display');
             const inputAgentes = row.querySelector('.input-agentes-simulados');
-
-            if (slaCell && ocupacaoCell && inputAgentes) {
-                // Simula um evento 'change' para calcular e aplicar highlights com os valores iniciais
-                // Isso garante que a lógica de cálculo e highlight seja a mesma da edição.
-                const changeEvent = new Event('change');
+            if (inputAgentes) {
+                const changeEvent = new Event('change', { bubbles: true });
                 inputAgentes.dispatchEvent(changeEvent);
             }
         });
-        console.log("JS: resultados_cenario.js carregado e pronto para simulação no frontend.");
+        console.log("JS: resultados_cenario.js (embutido) carregado e pronto.");
     });
 </script>
 {% endblock %}
